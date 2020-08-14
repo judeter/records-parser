@@ -4,16 +4,18 @@ Author: Justin Deterding
 
 Description:
 
+
+# TODO: Change deathrecord.py -> record.py
 """
 import logging
 from io import StringIO
-from pdf2image import convert_from_path
 import pytesseract as pt
 import cv2
+from pdf2image import convert_from_path
 import os
+import sys
 
-
-from deceased import Deceased
+from .deceased import Deceased
 
 
 class DeathRecord(object):
@@ -24,7 +26,10 @@ class DeathRecord(object):
         self.page_number = None
         self.page_str = ''
         logging.basicConfig(filename=page_file_name[:-3]+'log', level=logging.INFO)
-        self.parse_page(page_file_name)
+        if '.' in page_file_name:
+            self.parse_pdf_to_csv(page_file_name)
+        else:
+            self.parse_directory_to_csvs(page_file_name)
 
     def write_to_csv(self, file_name):
         with open(file_name, mode='w') as file:
@@ -37,7 +42,7 @@ class DeathRecord(object):
         with open(page_text_file, mode='r') as file:
             self.page_str = "".join(file.readlines())
 
-        lines = parse_page_to_words(self.page_str)
+        lines = self.parse_page_to_words(self.page_str)
 
         self.page_number = DeathRecord.get_page_number(lines)
 
@@ -81,27 +86,6 @@ class DeathRecord(object):
 
             if next_dec_indx == -1:
                 break
-
-        """
-        for line in stream:
-            words = line.strip().split(' ')
-            
-            if 'Lot' in words or 'Lots' in words:
-                current_lot = DeathRecord.parse_lot_from_line(words)
-                self.lots.append(current_lot)
-            
-            if DeathRecord.has_deceased_in_line(words):
-                deceased_line = words
-                current_pos = stream.tell()
-                words = stream.readline().strip().split(' ')
-                while not DeathRecord.has_deceased_in_line(words) and words[0] != '' \
-                      and ('Lot' in words or 'Lots' in words):
-                    deceased_line += words
-                    current_pos = stream.tell()
-                    words = stream.readline().strip().split(' ')
-                stream.seek(current_pos)
-                self.deceased.append(Deceased(deceased_line, current_lot))
-        """
 
     @staticmethod
     def get_page_number(page_list: list) -> int:
@@ -286,89 +270,89 @@ class DeathRecord(object):
 
         return indices
 
+    @staticmethod
+    def parse_page_to_words(page_string: str) -> list:
+        """
+        From a string of a death record page, the string is parsed into a list
+        of list with each inner list being list of words in a line and the
+        outer list being all of the list in a page.
 
-def parse_page_to_words(page_string: str) -> list:
-    """
-    From a string of a death record page, the string is parsed into a list
-    of list with each inner list being list of words in a line and the
-    outer list being all of the list in a page.
+        Parameters
+        ----------
+        page : str
+            A string of the death record.
 
-    Parameters
-    ----------
-    page : str
-        A string of the death record.
+        Returns
+        -------
+        list
+            A nested list.
+            [[word_11, word_12,...], # line 1
+             [word_21, word_22,...], # line 2
+             ...,
+             [word_n1, word_n2,...]] # line n
 
-    Returns
-    -------
-    list
-        A nested list.
-        [[word_11, word_12,...], # line 1
-         [word_21, word_22,...], # line 2
-         ...,
-         [word_n1, word_n2,...]] # line n
+        """
 
-    """
+        stream = StringIO(page_string)
+        page_list = [line.strip().split(' ') for line in stream
+                     if line.strip() != '']
 
-    stream = StringIO(page_string)
-    page_list = [line.strip().split(' ') for line in stream
-                 if line.strip() != '']
+        return page_list
 
-    return page_list
+    @staticmethod
+    def convert_pdf_to_image(pdf_file: str) -> str:
 
+        img = convert_from_path(pdf_file, dpi=500)[0]
 
-def convert_pdfs_to_imgs(pdfs: list):
-    img_names = []
-    for pdf in pdfs:
-        print('Converting {} to image ...'.format(pdf))
-        img = convert_from_path(pdf, dpi=500)[0]
+        image_file = pdf_file.split('.')[0] + '.jpg'
+        img.save(image_file, 'JPEG')
 
-        img_name = pdf.split('.')[0] + '.jpg'
-        img.save(img_name, 'JPEG')
-        img_names.append(img_name)
+        return image_file
 
-    return img_names
-
-
-def convert_imgs_to_txts(imgs: list):
-    txt_names = []
-    for img in imgs:
-        print('Converting {} to text'.format(img))
-        img_cv = cv2.imread(img)
+    @staticmethod
+    def convert_image_to_text(image_file: str) -> str:
+        img_cv = cv2.imread(image_file)
         # By default OpenCV stores images in BGR format and since pytesseract
         # assumes RGB format, we need to convert from BGR to RGB format/mode:
         img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
         pg_string = pt.image_to_string(img_rgb)
-        txt_name = img.split('.')[0] + '.txt'
+        text_file = image_file.split('.')[0] + '.txt'
 
-        with open(txt_name, mode='w') as file:
+        with open(text_file, mode='w') as file:
             file.write(pg_string)
-        txt_names.append(txt_name)
 
-    return txt_names
+        return text_file
 
-def convert_txts_to_csvs(text_file_names: list):
+    @staticmethod
+    def parse_texts_to_csv(text_file: str) -> str:
 
-    pages = []
+        page = DeathRecord(text_file)
+        page.write_to_csv(text_file[:-3]+'csv')
 
-    for page_name in text_file_names:
-        page = DeathRecord(page_name)
-        page.write_to_csv(page_name[:-3]+'csv')
-        pages.append(page)
+        return page
 
-    return pages
+    @staticmethod
+    def parse_pdf_to_csv(pdf_file: str) -> str:
+        image_file = DeathRecord.convert_pdf_to_image(pdf_file)
+        text_file = DeathRecord.convert_image_to_text(image_file)
+        csv_file = DeathRecord.parse_texts_to_csv(text_file)
+        return csv_file
 
+    @staticmethod
+    def parse_directory_to_csvs(dir_name: str) -> list:
+
+        csv_files = []
+        for path, sub_dirs, files in os.walk(dir_name):
+            for file in files:
+                if file.endswith('pdf') and file.split(' ')[0]== 'page':
+                    csv_file = DeathRecord.parse_pdf_to_csv(path + '\\' + file)
+                    csv_files.append(csv_file)
+        return csv_files
+
+# TODO: change converts to convert a single file
+# TODO: Add parse directory
+# TODO: Add parse file
 
 if __name__ == '__main__':
 
-    #pdfs = []
-    #for path, dirs, files in os.walk('Woodlawn cemetery'):
-    #    pdfs += [path+'\\'+file for file in files if file.endswith('pdf') and file[:4] == 'page']
-    #img_names = convert_pdfs_to_imgs(pdfs)
-
-    #txt_names = convert_imgs_to_txts(img_names)
-    #txt_names = [file for file in os.listdir() if file.endswith('txt')]
-    txt_names = []
-    for path, dirs, files in os.walk('Woodlawn cemetery'):
-        txt_names += [path+'\\'+file for file in files if file.endswith('txt') and file[:4] == 'page']
-
-    pages = convert_txts_to_csvs(txt_names)
+    DeathRecord(sys.argv[1])
