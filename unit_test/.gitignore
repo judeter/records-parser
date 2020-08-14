@@ -1,0 +1,11 @@
+*.csv
+*.log
+records_directory/sub_directory_1/sub_directory_11/page 9.jpg
+records_directory/sub_directory_1/sub_directory_11/page 9.txt
+records_directory/sub_directory_1/sub_directory_12/page 68.jpg
+records_directory/sub_directory_1/sub_directory_12/page 68.txt
+
+records_directory/sub_directory_2/sub_directory_21/page 72.jpg
+records_directory/sub_directory_2/sub_directory_21/page 72.txt
+records_directory/sub_directory_2/sub_directory_22/page 75.jpg
+records_directory/sub_directory_2/sub_directory_22/page 75.txt

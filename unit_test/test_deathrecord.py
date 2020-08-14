@@ -5,14 +5,14 @@ Author: Justin Deterding
 Description:
 
 """
+import os
 
-
-from deathrecord import DeathRecord
+from recordsparser.deathrecord import DeathRecord
 
 
 def test_parse_page_to_words():
     
-    record = parse_page_to_words("word11 word12 word13 \n \
+    record = DeathRecord.parse_page_to_words("word11 word12 word13 \n \
                                               \n \
                                               word21 word22 word23 ")
     
@@ -20,7 +20,7 @@ def test_parse_page_to_words():
                       ['word21', 'word22', 'word23']]
 
 
-    record = parse_page_to_words("word11 word12 word13 \n \
+    record = DeathRecord.parse_page_to_words("word11 word12 word13 \n \
                                               \n \n \
                                               word21 word22 word23 ")
     
@@ -41,7 +41,7 @@ def test_has_get_find_deceased():
     
     names = [('STULLKEN', 'Catharine')]
     
-    lines = parse_page_to_words(test_str)
+    lines = DeathRecord.parse_page_to_words(test_str)
     
     deceased_indices = DeathRecord.find_deceased_lines(lines)
     
@@ -59,7 +59,7 @@ def test_has_get_find_lots():
     
     lots = [('5', '6'), ('3B',)]
     
-    lines = parse_page_to_words(test_str)
+    lines = DeathRecord.parse_page_to_words(test_str)
     
     lot_indices = DeathRecord.find_lot_lines(lines)
     
@@ -70,12 +70,10 @@ def test_has_get_find_lots():
         
 def test_parse_page():
 
-    record = DeathRecord('test page.txt')
-      
-    print(len(record.deceased))
-    for d in record.deceased:
-        print(d)
-    
+    record = DeathRecord('records_directory')
+    record.write_to_csv('parsed_data.csv')
+    assert 'parsed_data.csv' in os.listdir(path='.')
+
     
 if __name__ == '__main__':
     

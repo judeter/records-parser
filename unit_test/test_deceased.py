@@ -6,7 +6,7 @@ Description:
 
 """
 
-from deceased import Deceased
+from recordsparser.deceased import Deceased
 
 
 def test_find_ints_in_word():
