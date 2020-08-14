@@ -25,11 +25,19 @@ class DeathRecord(object):
         self.deceased = []
         self.page_number = None
         self.page_str = ''
-        logging.basicConfig(filename=page_file_name[:-3]+'log', level=logging.INFO)
+
         if '.' in page_file_name:
-            self.parse_pdf_to_csv(page_file_name)
+            log_name = page_file_name.split('.')[:-1]+'.log'
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(filename=log_name, level=logging.INFO)
+            self.parse_pdf(page_file_name)
         else:
-            self.parse_directory_to_csvs(page_file_name)
+            log_name = page_file_name + '.log'
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(filename=log_name, level=logging.INFO)
+            self.parse_directory(page_file_name)
 
     def write_to_csv(self, file_name):
         with open(file_name, mode='w') as file:
@@ -279,7 +287,7 @@ class DeathRecord(object):
 
         Parameters
         ----------
-        page : str
+        page_string : str
             A string of the death record.
 
         Returns
@@ -301,53 +309,42 @@ class DeathRecord(object):
 
     @staticmethod
     def convert_pdf_to_image(pdf_file: str) -> str:
-
-        img = convert_from_path(pdf_file, dpi=500)[0]
-
         image_file = pdf_file.split('.')[0] + '.jpg'
-        img.save(image_file, 'JPEG')
+        if not os.path.exists(image_file):
+            img = convert_from_path(pdf_file, dpi=500)[0]
+            img.save(image_file, 'JPEG')
 
         return image_file
 
     @staticmethod
     def convert_image_to_text(image_file: str) -> str:
-        img_cv = cv2.imread(image_file)
-        # By default OpenCV stores images in BGR format and since pytesseract
-        # assumes RGB format, we need to convert from BGR to RGB format/mode:
-        img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
-        pg_string = pt.image_to_string(img_rgb)
         text_file = image_file.split('.')[0] + '.txt'
+        if not os.path.exists(text_file):
 
-        with open(text_file, mode='w') as file:
-            file.write(pg_string)
+            img_cv = cv2.imread(image_file)
+            # By default OpenCV stores images in BGR format and since pytesseract
+            # assumes RGB format, we need to convert from BGR to RGB format/mode:
+            img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+            pg_string = pt.image_to_string(img_rgb)
+
+            with open(text_file, mode='w') as file:
+                file.write(pg_string)
 
         return text_file
 
-    @staticmethod
-    def parse_texts_to_csv(text_file: str) -> str:
+    def parse_pdf(self, pdf_file: str) -> None:
+        image_file = self.convert_pdf_to_image(pdf_file)
+        text_file = self.convert_image_to_text(image_file)
+        self.parse_page(text_file)
 
-        page = DeathRecord(text_file)
-        page.write_to_csv(text_file[:-3]+'csv')
+    def parse_directory(self, dir_name: str) -> None:
 
-        return page
-
-    @staticmethod
-    def parse_pdf_to_csv(pdf_file: str) -> str:
-        image_file = DeathRecord.convert_pdf_to_image(pdf_file)
-        text_file = DeathRecord.convert_image_to_text(image_file)
-        csv_file = DeathRecord.parse_texts_to_csv(text_file)
-        return csv_file
-
-    @staticmethod
-    def parse_directory_to_csvs(dir_name: str) -> list:
-
-        csv_files = []
         for path, sub_dirs, files in os.walk(dir_name):
             for file in files:
-                if file.endswith('pdf') and file.split(' ')[0]== 'page':
-                    csv_file = DeathRecord.parse_pdf_to_csv(path + '\\' + file)
-                    csv_files.append(csv_file)
-        return csv_files
+                if file.endswith('pdf') and file.split(' ')[0] == 'page':
+                    print('Parsing: ' + file)
+                    self.parse_pdf(path + '\\' + file)
+
 
 # TODO: change converts to convert a single file
 # TODO: Add parse directory
@@ -355,4 +352,5 @@ class DeathRecord(object):
 
 if __name__ == '__main__':
 
-    DeathRecord(sys.argv[1])
+    record = DeathRecord(sys.argv[1])
+    record.write_to_csv('all_data.csv')

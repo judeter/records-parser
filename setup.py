@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='records-parser',
+    name='recordsparser',
     version='0.0.1',
     packages=[''],
     url='https://github.com/judeter/records-parser',
